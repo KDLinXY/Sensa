@@ -180,9 +180,12 @@ namespace Sensa
         private void RefreshDevices()
         {
             var connected = NativeMouse.EnumerateDevices();
+            bool added = ProfileCatalog.AddDiscoveredProfiles(_settings, connected,
+                NativeMouse.GetSpeed(), NativeMouse.GetAcceleration());
             foreach (var profile in _settings.Profiles)
                 profile.Connected = connected.Any(d => d.Id == profile.Id);
             _devicePicker.Items.Refresh();
+            if (added) Save();
         }
 
         private IntPtr WndProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)

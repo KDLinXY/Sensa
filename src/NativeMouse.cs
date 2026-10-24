@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -71,6 +72,16 @@ namespace Sensa
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SystemParametersInfo(uint action, uint parameter, int[] value, uint flags);
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr CreateFile(string path, uint access, FileShare share,
+            IntPtr security, uint creation, uint flags, IntPtr template);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr handle);
+
+        [DllImport("hid.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool HidD_GetProductString(IntPtr handle, StringBuilder value, uint length);
+
         internal static void RegisterForInput(IntPtr window)
         {
             var devices = new[]
@@ -124,12 +135,14 @@ namespace Sensa
                     string path = GetDevicePath(item.Device);
                     string id = ParseDeviceId(path);
                     if (id == null) continue;
+                    string displayName = ProfileCatalog.GetDisplayName(id) ?? GetProductName(path);
+                    if (String.IsNullOrWhiteSpace(displayName)) displayName = "HID 鼠标 " + id;
                     result.Add(new MouseDevice
                     {
                         Handle = item.Device,
                         DevicePath = path,
                         Id = id,
-                        DisplayName = ProfileCatalog.GetDisplayName(id)
+                        DisplayName = displayName
                     });
                 }
             }
@@ -149,6 +162,21 @@ namespace Sensa
             var text = new StringBuilder((int)size);
             return GetRawInputDeviceInfo(handle, RidiDeviceName, text, ref size) == UInt32.MaxValue
                 ? "" : text.ToString();
+        }
+
+        private static string GetProductName(string devicePath)
+        {
+            IntPtr handle = CreateFile(devicePath, 0, FileShare.ReadWrite, IntPtr.Zero, 3, 0, IntPtr.Zero);
+            if (handle == new IntPtr(-1)) return null;
+            try
+            {
+                var value = new StringBuilder(256);
+                if (!HidD_GetProductString(handle, value, (uint)(value.Capacity * 2))) return null;
+                string text = value.ToString().Trim();
+                if (text.Length == 0 || text.Equals("HID-compliant mouse", StringComparison.OrdinalIgnoreCase)) return null;
+                return text;
+            }
+            finally { CloseHandle(handle); }
         }
 
         internal static string ParseDeviceId(string devicePath)

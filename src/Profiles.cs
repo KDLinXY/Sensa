@@ -79,7 +79,30 @@ namespace Sensa
             if (id == "1532:0098") return "Razer DeathAdder Essential";
             if (id == "046D:C077") return "Logitech B100";
             if (id == "258A:010C") return "AOC KM151 D0";
-            return "其他鼠标";
+            return null;
+        }
+
+        internal static bool AddDiscoveredProfiles(ProfileSettings settings, IEnumerable<MouseDevice> devices,
+            int currentSpeed, bool acceleration)
+        {
+            bool added = false;
+            foreach (var device in devices)
+            {
+                if (String.IsNullOrEmpty(device.Id) || settings.Profiles.Any(p => p.Id == device.Id)) continue;
+                var profile = new MouseProfile
+                {
+                    Id = device.Id,
+                    Name = String.IsNullOrWhiteSpace(device.DisplayName) ? "HID 鼠标 " + device.Id : device.DisplayName,
+                    Model = "自动适配 · 通用 HID",
+                    Speed = currentSpeed,
+                    Dpi = 0,
+                    Acceleration = acceleration
+                };
+                int genericIndex = settings.Profiles.FindIndex(p => p.Id == "OTHER");
+                settings.Profiles.Insert(genericIndex < 0 ? settings.Profiles.Count : genericIndex, profile);
+                added = true;
+            }
+            return added;
         }
 
         internal static MouseProfile Find(IList<MouseProfile> profiles, string id)

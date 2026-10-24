@@ -53,6 +53,15 @@ namespace Sensa
                 string path = Path.Combine(directory, "profiles.json");
                 var store = new ProfileStore(path);
                 var settings = store.Load();
+                var discovered = new System.Collections.Generic.List<MouseDevice>
+                {
+                    new MouseDevice { Id = "1234:ABCD", DisplayName = "Example Optical Mouse" },
+                    new MouseDevice { Id = "1234:ABCD", DisplayName = "Example Optical Mouse" },
+                    new MouseDevice { Id = "1532:0098", DisplayName = "Duplicate Razer" }
+                };
+                Assert(ProfileCatalog.AddDiscoveredProfiles(settings, discovered, 11, false), "Unknown HID mouse automatic registration");
+                Assert(settings.Profiles.Count == 5 && ProfileCatalog.Find(settings.Profiles, "1234:ABCD").Name == "Example Optical Mouse" && ProfileCatalog.Find(settings.Profiles, "1234:ABCD").Speed == 11, "Discovered mouse independent named profile");
+                Assert(!ProfileCatalog.AddDiscoveredProfiles(settings, discovered, 11, false) && settings.Profiles.Count == 5, "Duplicate device registration prevention");
                 settings.SelectedId = "046D:C077";
                 settings.AutoSwitch = false;
                 ProfileCatalog.Find(settings.Profiles, settings.SelectedId).Speed = 14;
@@ -84,7 +93,7 @@ namespace Sensa
                 if (Environment.GetEnvironmentVariable("SENSA_TEST_ONLINE") == "1")
                 {
                     var release = UpdateManager.CheckLatest();
-                    Assert(release.tag_name == "v1.2.0", "GitHub latest release detection");
+                    Assert(release.tag_name == "v" + UpdateManager.CurrentVersion, "GitHub latest release detection");
                     string downloaded = UpdateManager.DownloadVerifiedPackage(release);
                     Assert(File.Exists(downloaded) && new FileInfo(downloaded).Length > 50000, "GitHub update download and SHA-256 verification");
                 }
