@@ -28,6 +28,17 @@ namespace Sensa
                 bool originalAcceleration = NativeMouse.GetAcceleration();
                 Assert(NativeMouse.SetSpeed(originalSpeed) && NativeMouse.GetSpeed() == originalSpeed, "Windows speed API read/write");
                 Assert(NativeMouse.SetAcceleration(originalAcceleration), "Windows acceleration API read/write");
+                int originalCursorSize = NativeCursor.GetSize();
+                try
+                {
+                    Assert(NativeCursor.SetSize(48) && NativeCursor.GetSize() == 48, "Windows cursor size read/write and refresh");
+                    Assert(NativeCursor.GetCurrentCursorPixelSize() == 48, "Cursor immediate pixel-size verification");
+                }
+                finally
+                {
+                    NativeCursor.SetSize(originalCursorSize);
+                    Assert(NativeCursor.GetSize() == originalCursorSize, "Cursor original size restoration");
+                }
                 var report = RazerDpi.BuildReport(true, 1600);
                 Assert(report.Length == 91 && report[7] == 0x04 && report[8] == 0x05 && report[10] == 0x06 && report[11] == 0x40, "Razer DPI report encoding");
                 int hardwareDpi;
@@ -64,6 +75,7 @@ namespace Sensa
                 Assert(!ProfileCatalog.AddDiscoveredProfiles(settings, discovered, 11, false) && settings.Profiles.Count == 5, "Duplicate device registration prevention");
                 settings.SelectedId = "046D:C077";
                 settings.AutoSwitch = false;
+                settings.CursorSize = 96;
                 ProfileCatalog.Find(settings.Profiles, settings.SelectedId).Speed = 14;
                 store.Save(settings);
                 string package = Path.Combine(directory, "package.exe");
@@ -81,7 +93,7 @@ namespace Sensa
                 catch (InvalidDataException) { blocked = true; }
                 Assert(blocked && !File.Exists(package), "Tampered update package blocked and deleted");
                 var loaded = store.Load();
-                Assert(loaded.SelectedId == "046D:C077" && !loaded.AutoSwitch, "Settings round trip");
+                Assert(loaded.SelectedId == "046D:C077" && !loaded.AutoSwitch && loaded.CursorSize == 96, "Settings and cursor size round trip");
                 Assert(ProfileCatalog.Find(loaded.Profiles, "046D:C077").Speed == 14, "Independent model speed persistence");
 
                 ProfileCatalog.Find(loaded.Profiles, "046D:C077").Speed = 100;

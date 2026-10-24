@@ -8,6 +8,7 @@ New-Item -ItemType Directory -Force -Path $dist, $build | Out-Null
 
 $common = @(
     (Join-Path $root 'src\NativeMouse.cs'),
+    (Join-Path $root 'src\NativeCursor.cs'),
     (Join-Path $root 'src\GlobalHotkeys.cs'),
     (Join-Path $root 'src\RazerDpi.cs'),
     (Join-Path $root 'src\UpdateManager.cs'),

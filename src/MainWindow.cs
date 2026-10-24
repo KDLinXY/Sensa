@@ -47,6 +47,11 @@ namespace Sensa
         private Button _updateButton;
         private Button _adminRetryButton;
         private bool _checkingUpdate;
+        private bool _cursorMode;
+        private Button _cursorModeButton;
+        private UIElement _cursorPanel;
+        private TextBlock _cursorSizeValue;
+        private UniformGrid _cursorSizes;
 
         internal MainWindow()
         {
@@ -92,11 +97,21 @@ namespace Sensa
             _dpiStages = (UniformGrid)_root.FindName("DpiStages");
             _updateButton = (Button)_root.FindName("UpdateButton");
             _adminRetryButton = (Button)_root.FindName("AdminRetryButton");
+            _cursorModeButton = (Button)_root.FindName("CursorMode");
+            _cursorPanel = (UIElement)_root.FindName("CursorPanel");
+            _cursorSizeValue = (TextBlock)_root.FindName("CursorSizeValue");
+            _cursorSizes = (UniformGrid)_root.FindName("CursorSizes");
 
             _updateButton.Click += delegate { CheckForUpdates(); };
             _adminRetryButton.Click += delegate { RestartAsAdministrator(); };
             _sensitivityModeButton.Click += delegate { SetMode(false); };
             _dpiModeButton.Click += delegate { SetMode(true); };
+            _cursorModeButton.Click += delegate { SetCursorMode(); };
+            foreach (var size in NativeCursor.Sizes)
+            {
+                int selectedSize = size;
+                ((Button)_root.FindName("Cursor" + size)).Click += delegate { SetCursorSize(selectedSize); };
+            }
             foreach (var dpi in new[] { 400, 800, 1600, 3200, 6400 })
             {
                 int selectedDpi = dpi;
@@ -111,6 +126,11 @@ namespace Sensa
             ((Button)_root.FindName("CloseButton")).Click += delegate { HideToTray(); };
             ((Button)_root.FindName("ResetButton")).Click += delegate
             {
+                if (_cursorMode)
+                {
+                    SetCursorSize(32);
+                    return;
+                }
                 if (_dpiMode)
                 {
                     if (_current.SupportsHardwareDpi) SetHardwareDpi(1600);
@@ -229,23 +249,31 @@ namespace Sensa
 
         internal void SetMode(bool dpiMode)
         {
+            _cursorMode = false;
             _dpiMode = dpiMode;
             UpdateModeUi();
             SetStatus(dpiMode ? "硬件 DPI 模式 · 直接请求鼠标传感器档位" : "系统灵敏度模式 · 调节 Windows 指针速度");
         }
 
+        internal void SetCursorMode()
+        {
+            _cursorMode = true;
+            UpdateModeUi();
+            SetStatus("光标大小 · 当前用户即时生效，不改变光标主题");
+        }
+
         private void UpdateModeUi()
         {
             if (_current == null) return;
-            _sensitivityPanel.Visibility = _dpiMode ? Visibility.Collapsed : Visibility.Visible;
-            _dpiPanel.Visibility = _dpiMode ? Visibility.Visible : Visibility.Collapsed;
+            _sensitivityPanel.Visibility = !_dpiMode && !_cursorMode ? Visibility.Visible : Visibility.Collapsed;
+            _dpiPanel.Visibility = _dpiMode && !_cursorMode ? Visibility.Visible : Visibility.Collapsed;
+            _cursorPanel.Visibility = _cursorMode ? Visibility.Visible : Visibility.Collapsed;
             _adminRetryButton.Visibility = Visibility.Collapsed;
-            _acceleration.Visibility = _dpiMode ? Visibility.Collapsed : Visibility.Visible;
-            _hotkeyText.Visibility = _dpiMode ? Visibility.Collapsed : Visibility.Visible;
-            _sensitivityModeButton.Background = new SolidColorBrush(_dpiMode ? Color.FromRgb(32, 38, 45) : Color.FromRgb(92, 225, 180));
-            _sensitivityModeButton.Foreground = new SolidColorBrush(_dpiMode ? Color.FromRgb(232, 237, 242) : Color.FromRgb(16, 33, 28));
-            _dpiModeButton.Background = new SolidColorBrush(_dpiMode ? Color.FromRgb(92, 225, 180) : Color.FromRgb(32, 38, 45));
-            _dpiModeButton.Foreground = new SolidColorBrush(_dpiMode ? Color.FromRgb(16, 33, 28) : Color.FromRgb(232, 237, 242));
+            _acceleration.Visibility = !_dpiMode && !_cursorMode ? Visibility.Visible : Visibility.Collapsed;
+            _hotkeyText.Visibility = !_dpiMode && !_cursorMode ? Visibility.Visible : Visibility.Collapsed;
+            SetTabVisual(_sensitivityModeButton, !_dpiMode && !_cursorMode);
+            SetTabVisual(_dpiModeButton, _dpiMode && !_cursorMode);
+            SetTabVisual(_cursorModeButton, _cursorMode);
             _dpiValue.Text = _current.Dpi > 0 ? _current.Dpi.ToString() : "—";
             _dpiDescription.Text = _current.SupportsHardwareDpi
                 ? "硬件 DPI · 五档切换，成功应答后保存"
@@ -259,6 +287,33 @@ namespace Sensa
                 bool active = _current.SupportsHardwareDpi && button.Name == "Dpi" + _current.Dpi;
                 button.Background = new SolidColorBrush(active ? Color.FromRgb(52, 86, 74) : Color.FromRgb(32, 38, 45));
             }
+            _cursorSizeValue.Text = _settings.CursorSize.ToString();
+            foreach (var child in _cursorSizes.Children)
+            {
+                var button = child as Button;
+                if (button == null) continue;
+                bool active = button.Name == "Cursor" + _settings.CursorSize;
+                button.Background = new SolidColorBrush(active ? Color.FromRgb(52, 86, 74) : Color.FromRgb(32, 38, 45));
+            }
+        }
+
+        private static void SetTabVisual(Button button, bool active)
+        {
+            button.Background = new SolidColorBrush(active ? Color.FromRgb(92, 225, 180) : Color.FromRgb(32, 38, 45));
+            button.Foreground = new SolidColorBrush(active ? Color.FromRgb(16, 33, 28) : Color.FromRgb(232, 237, 242));
+        }
+
+        private void SetCursorSize(int size)
+        {
+            if (!NativeCursor.SetSize(size))
+            {
+                SetStatus("光标大小设置失败，请重试");
+                return;
+            }
+            _settings.CursorSize = size;
+            Save();
+            UpdateModeUi();
+            SetStatus("光标已调整为 " + size + " 像素 · 即时生效");
         }
 
         private void SetHardwareDpi(int dpi)
@@ -466,6 +521,11 @@ namespace Sensa
         private void ApplyAndSave(string message)
         {
             if (_current == null) return;
+            if (_cursorMode)
+            {
+                SetCursorSize(_settings.CursorSize);
+                return;
+            }
             if (_dpiMode)
             {
                 if (_current.SupportsHardwareDpi) SetHardwareDpi(_current.Dpi);
@@ -603,9 +663,10 @@ namespace Sensa
           <Border x:Name='ConnectionDot' Width='7' Height='7' CornerRadius='4' Background='#5CE1B4' Margin='0 0 6 0'/>
           <TextBlock x:Name='ConnectionText' Text='已连接' Foreground='#8B95A3' FontSize='10'/></StackPanel>
       </Grid>
-        <UniformGrid Columns='2' Margin='0 16 0 0'>
-          <Button x:Name='SensitivityMode' Content='系统灵敏度' Height='32' Margin='0 0 4 0' FontSize='11'/>
-          <Button x:Name='DpiMode' Content='硬件 DPI' Height='32' Margin='4 0 0 0' FontSize='11'/>
+        <UniformGrid Columns='3' Margin='0 16 0 0'>
+          <Button x:Name='SensitivityMode' Content='灵敏度' Height='32' Margin='0 0 3 0' FontSize='11'/>
+          <Button x:Name='DpiMode' Content='硬件 DPI' Height='32' Margin='2 0' FontSize='11'/>
+          <Button x:Name='CursorMode' Content='光标大小' Height='32' Margin='3 0 0 0' FontSize='11'/>
         </UniformGrid>
         <StackPanel x:Name='SensitivityPanel'>
           <Grid Margin='0 14 0 0'><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions>
@@ -640,6 +701,21 @@ namespace Sensa
           <Button x:Name='AdminRetryButton' Content='以管理员身份重启并重试' Height='30' FontSize='10'
             Margin='0 10 0 0' Visibility='Collapsed'/>
         </StackPanel>
+        <StackPanel x:Name='CursorPanel' Visibility='Collapsed'>
+          <Grid Margin='0 14 0 0'><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions>
+            <TextBlock Text='系统光标尺寸' FontSize='10' Foreground='#8B95A3' VerticalAlignment='Center'/>
+            <StackPanel Grid.Column='1' Orientation='Horizontal'><TextBlock x:Name='CursorSizeValue' Text='32' FontSize='34' FontWeight='Light'
+              Foreground='#5CE1B4' VerticalAlignment='Bottom'/><TextBlock Text=' px' FontSize='12' Foreground='#687480'
+              VerticalAlignment='Bottom' Margin='3 0 0 6'/></StackPanel></Grid>
+          <TextBlock Text='当前用户 · 即时生效 · 保留原有光标主题' FontSize='10' Foreground='#7F8A97' Margin='0 12 0 0'/>
+          <UniformGrid x:Name='CursorSizes' Columns='5' Margin='0 16 0 0'>
+            <Button x:Name='Cursor32' Content='32' Height='34' Margin='0 0 4 0' FontSize='11'/>
+            <Button x:Name='Cursor48' Content='48' Height='34' Margin='2 0' FontSize='11'/>
+            <Button x:Name='Cursor64' Content='64' Height='34' Margin='2 0' FontSize='11'/>
+            <Button x:Name='Cursor96' Content='96' Height='34' Margin='2 0' FontSize='11'/>
+            <Button x:Name='Cursor128' Content='128' Height='34' Margin='4 0 0 0' FontSize='11'/>
+          </UniformGrid>
+        </StackPanel>
       </StackPanel>
     </Border>
     <StackPanel Grid.Row='4' Margin='2 18 2 0'>
@@ -649,7 +725,7 @@ namespace Sensa
     </StackPanel>
     <Border Grid.Row='6' Background='#181E24' CornerRadius='9' Padding='12 9' Margin='0 16 0 0'>
       <TextBlock FontSize='10' Foreground='#7F8A97' TextWrapping='Wrap' LineHeight='16'
-        Text='两种模式互不影响：系统灵敏度改变 Windows 指针速度；硬件 DPI 请求鼠标传感器档位，仅对硬件支持的型号开放。'/>
+        Text='灵敏度、硬件 DPI 与光标大小分别调节。光标尺寸对当前 Windows 用户生效，不改变灵敏度、DPI 或光标主题。'/>
     </Border>
     <Grid Grid.Row='5' VerticalAlignment='Bottom' Margin='0 14 0 0'>
       <TextBlock x:Name='StatusText' Text='正在初始化…' FontSize='10' Foreground='#5CE1B4' TextTrimming='CharacterEllipsis' Margin='0 0 172 0'/>

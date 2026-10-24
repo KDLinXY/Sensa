@@ -32,6 +32,13 @@ namespace Sensa
                     encoder = new PngBitmapEncoder();
                     encoder.Frames.Add(BitmapFrame.Create(bitmap));
                     using (var stream = File.Create(Path.Combine(Path.GetDirectoryName(args[0]), "dpi-render.png"))) encoder.Save(stream);
+                    window.SetCursorMode();
+                    window.UpdateLayout();
+                    bitmap = new RenderTargetBitmap(452, 730, 96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render((Visual)window.Content);
+                    encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    using (var stream = File.Create(Path.Combine(Path.GetDirectoryName(args[0]), "cursor-render.png"))) encoder.Save(stream);
                     window.ExitApplication();
                 }), DispatcherPriority.ApplicationIdle);
             };

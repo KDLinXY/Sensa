@@ -42,6 +42,7 @@ namespace Sensa
         public string SelectedId { get; set; }
         public bool AutoSwitch { get; set; }
         public bool HotkeyUseShift { get; set; }
+        public int CursorSize { get; set; }
         public List<MouseProfile> Profiles { get; set; }
     }
 
@@ -133,6 +134,7 @@ namespace Sensa
 
             if (settings == null) settings = new ProfileSettings();
             if (settings.Profiles == null) settings.Profiles = new List<MouseProfile>();
+            if (settings.CursorSize < 32 || settings.CursorSize > 256) settings.CursorSize = NativeCursor.GetSize();
 
             var defaults = ProfileCatalog.CreateDefaults(NativeMouse.GetSpeed(), NativeMouse.GetAcceleration());
             foreach (var item in defaults)
