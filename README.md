@@ -1,0 +1,45 @@
+# Sensa
+
+轻量级 Windows 鼠标灵敏度工具。单文件、免安装，基于 Windows 自带的 .NET Framework 4.x。
+
+## 功能
+
+- 按 USB VID／PID 识别鼠标，独立保存各型号配置
+- 根据当前活动的鼠标自动切换配置
+- Windows 系统灵敏度与硬件 DPI 双模式
+- 托盘常驻、全局快捷键、手动检查 GitHub 更新
+- 更新包 SHA-256 校验，确认后才会下载和替换
+
+## 支持型号
+
+| 型号 | USB ID | 系统灵敏度 | 硬件 DPI |
+| --- | --- | --- | --- |
+| Razer DeathAdder Essential RZ01-03850 | `1532:0098` | 支持 | 400／800／1600／3200／6400，依赖设备固件应答 |
+| Logitech B100 | `046D:C077` | 支持 | 固定 800 DPI |
+| AOC KM151 D0 | `258A:010C` | 支持 | 固定 1600 DPI |
+| 其他 HID 鼠标 | 通用配置 | 支持 | 不开放 |
+
+硬件 DPI 与 Windows 指针速度是两套不同设置。Razer 直接 HID 写入可能受固件、厂商软件或 Windows 权限影响；失败时 Sensa 不会修改界面中的目标值，可尝试管理员身份重试。
+
+## 快捷键
+
+默认使用 `Ctrl+Alt`，可在托盘菜单改为 `Ctrl+Shift`：
+
+- `1`：精细 6
+- `2`：均衡 10
+- `3`：迅捷 14
+- `S`：显示／隐藏窗口
+
+## 构建
+
+在 Windows 上运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1
+```
+
+输出为 `dist/Sensa.exe`，构建过程会运行逻辑测试和界面渲染测试。
+
+## 更新
+
+正式版本发布于本仓库 Releases。应用内的“检查更新”读取最新正式版本，确认后下载 `Sensa.exe` 与 `Sensa.exe.sha256`，验证一致才启动替换流程。不会自动强制更新。
